@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registration</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f4f4f4;
+      margin: 0;
+    }
+    #register, #waiting {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      width: 300px;
+    }
+    h1 {
+      margin-top: 0;
+    }
+    form input {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    input[type="submit"], input[type="reset"] {
+      background-color: #007bff;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    input[type="submit"]:hover, input[type="reset"]:hover {
+      background-color: #0056b3;
+    }
+    #waiting {
+      display: none;
+    }
+    .button-container {
+      display: flex;
+      justify-content: space-between;
+    }
+    .message {
+      text-align: center;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    socket.on("connect", () => {
+      console.log(socket.id);
+      console.log(socket.connected);
+    });
+  </script>
+
+  <div id="register">
+    <h1>Registration</h1>
+    <form onsubmit="submitForm(event)">
+      <input type="text" name="firstName" id="firstName" placeholder="First Name" required />
+      <input type="text" name="lastName" id="lastName" placeholder="Last Name" required />
+      <input type="email" name="email" id="email" placeholder="Email" required />
+      <input type="password" name="password" id="password" placeholder="Password" required />
+      <input type="password" name="confirmPassword" id="confirmPassword" placeholder="Confirm Password" required />
+      <div class="button-container">
+        <input type="reset" value="Reset" />
+        <input type="submit" value="Register" />
+      </div>
+    </form>
+  </div>
+
+  <div id="waiting" class="message">
+    <h1>Waiting for Email Verification...</h1>
+    <h3>Open your registered email and verify your email by clicking the verification button.</h3>
+    <h4>Do not refresh or redirect this page.</h4>
+  </div>
+
+  <script>
+    socket.on("redirect", () => {
+      window.location.href = "/verified";
+    });
+
+    function startWaiting() {
+      document.getElementById("waiting").style.display = "block";
+      document.getElementById("register").style.display = "none";
+    }
+
+    function submitForm(event) {
+      event.preventDefault();
+      let password = document.getElementById("password").value;
+      let confirmPassword = document.getElementById("confirmPassword").value;
+
+      if (password !== confirmPassword) {
+        alert("Password and confirm password should be the same");
+        return;
+      }
+
+      const formData = {
+        firstName: document.getElementById("firstName").value,
+        lastName: document.getElementById("lastName").value,
+        email: document.getElementById("email").value,
+        password: password,
+        confirmPassword: confirmPassword,
+      };
+
+      if (!socket.connected) {
+        alert("Unable to register, try again");
+        socket.connect();
+        return;
+      }
+
+      formData.sid = socket.id;
+      // Fetch POST request to send form data
+      fetch("/registration_submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
+        .then(async (response) => {
+          if (response.status === 200) {
+            startWaiting();
+          } else {
+            const result = await response.json();
+            alert(result.message);
+          }
+        })
+        .catch((err) => {
+          alert("Network error");
+          console.log(err);
+        });
+    }
+  </script>
+</body>
+</html>
